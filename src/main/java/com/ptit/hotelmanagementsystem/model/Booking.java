@@ -21,7 +21,10 @@ public class Booking {
     @Column(name = "room_id", nullable = false)
     private Long roomId;
 
-    @Column(name = "user_id", nullable = false)
+    @Column(name = "hotel_id", nullable = false)
+    private Long hotelId;
+
+    @Column(name = "user_id")
     private Long userId;
 
     @Column(name = "check_in_date", nullable = false)

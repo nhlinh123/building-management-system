@@ -12,6 +12,7 @@ import java.util.Date;
 @AllArgsConstructor
 public class BookingDto {
     private Long id;
+    private Long hotelId;
     private Long roomId;
     private Long userId;
     private Date checkInDate;

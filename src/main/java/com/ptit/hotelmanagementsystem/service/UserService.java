@@ -32,9 +32,11 @@ public class UserService implements UserDetailsService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with username: " + username));
 
+        String password = user.getPassword() != null ? user.getPassword() : "";
+
         return new org.springframework.security.core.userdetails.User(
                 user.getUsername(),
-                user.getPassword(),
+                password,
                 Arrays.stream(user.getRoles().split(","))
                         .map(SimpleGrantedAuthority::new)
                         .collect(Collectors.toList())
@@ -44,7 +46,9 @@ public class UserService implements UserDetailsService {
     public User createUser(RegisterRequest registerRequest) {
         User newUser = new User();
         newUser.setUsername(registerRequest.getUsername());
-        newUser.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
+        if (registerRequest.getPassword() != null && !registerRequest.getPassword().isEmpty()) {
+            newUser.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
+        }
         newUser.setRoles(registerRequest.getRoles() != null ? registerRequest.getRoles() : "ROLE_USER");
         return userRepository.save(newUser);
     }

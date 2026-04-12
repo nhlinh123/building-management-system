@@ -4,7 +4,10 @@ import com.ptit.hotelmanagementsystem.dto.BookingDto;
 import com.ptit.hotelmanagementsystem.dto.CreateBookingRequest;
 import com.ptit.hotelmanagementsystem.dto.UpdateBookingRequest;
 import com.ptit.hotelmanagementsystem.model.Booking;
+import com.ptit.hotelmanagementsystem.model.User;
 import com.ptit.hotelmanagementsystem.repository.BookingRepository;
+import com.ptit.hotelmanagementsystem.repository.UserRepository;
+import com.ptit.hotelmanagementsystem.repository.RoomRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.List;
@@ -17,20 +20,52 @@ public class BookingService {
     @Autowired
     private BookingRepository bookingRepository;
 
-    public BookingDto createBooking(CreateBookingRequest request) {
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private RoomRepository roomRepository;
+
+    public BookingDto createBooking(CreateBookingRequest request, String username) {
+        // If userId not provided in request, try to infer from authenticated username
+        Long userId = request.getUserId();
+        if (userId == null && username != null) {
+            userId = userRepository.findByUsername(username).map(User::getId).orElse(null);
+        }
+
         Booking booking = Booking.builder()
+                .hotelId(request.getHotelId())
                 .roomId(request.getRoomId())
-                .userId(request.getUserId())
+                .userId(userId)
                 .checkInDate(request.getCheckInDate())
                 .checkOutDate(request.getCheckOutDate())
-                .status(request.getStatus())
-                .totalPrice(request.getTotalPrice())
+                .status(request.getStatus() != null ? request.getStatus() : "PENDING")
+                .totalPrice(request.getTotalPrice() != null ? request.getTotalPrice() : 0.0)
                 .guestName(request.getGuestName())
                 .guestEmail(request.getGuestEmail())
                 .guestPhone(request.getGuestPhone())
+                .createdAt(new java.util.Date())
+                .updatedAt(new java.util.Date())
                 .build();
 
         Booking savedBooking = bookingRepository.save(booking);
+
+        // If booking status is PENDING (or other statuses as required), mark the room as unavailable
+        if (savedBooking.getRoomId() != null && "PENDING".equalsIgnoreCase(savedBooking.getStatus())) {
+            // Lazy update: only change if room is currently available
+            try {
+                roomRepository.findById(savedBooking.getRoomId()).ifPresent(room -> {
+                    if (room.isAvailable()) {
+                        room.setAvailable(false);
+                        roomRepository.save(room);
+                    }
+                });
+            } catch (Exception e) {
+                // Log and continue; booking was created successfully
+                System.out.println("Failed to update room availability: " + e.getMessage());
+            }
+        }
+
         return mapToDto(savedBooking);
     }
 
@@ -68,15 +103,17 @@ public class BookingService {
 
     public Optional<BookingDto> updateBooking(Long id, UpdateBookingRequest request) {
         return bookingRepository.findById(id).map(booking -> {
-            booking.setRoomId(request.getRoomId());
-            booking.setUserId(request.getUserId());
-            booking.setCheckInDate(request.getCheckInDate());
-            booking.setCheckOutDate(request.getCheckOutDate());
-            booking.setStatus(request.getStatus());
-            booking.setTotalPrice(request.getTotalPrice());
-            booking.setGuestName(request.getGuestName());
-            booking.setGuestEmail(request.getGuestEmail());
-            booking.setGuestPhone(request.getGuestPhone());
+            if (request.getHotelId() != null) booking.setHotelId(request.getHotelId());
+            if (request.getRoomId() != null) booking.setRoomId(request.getRoomId());
+            if (request.getUserId() != null) booking.setUserId(request.getUserId());
+            if (request.getCheckInDate() != null) booking.setCheckInDate(request.getCheckInDate());
+            if (request.getCheckOutDate() != null) booking.setCheckOutDate(request.getCheckOutDate());
+            if (request.getStatus() != null) booking.setStatus(request.getStatus());
+            if (request.getTotalPrice() != null) booking.setTotalPrice(request.getTotalPrice());
+            if (request.getGuestName() != null) booking.setGuestName(request.getGuestName());
+            if (request.getGuestEmail() != null) booking.setGuestEmail(request.getGuestEmail());
+            if (request.getGuestPhone() != null) booking.setGuestPhone(request.getGuestPhone());
+            booking.setUpdatedAt(new java.util.Date());
             
             Booking updatedBooking = bookingRepository.save(booking);
             return mapToDto(updatedBooking);
@@ -94,6 +131,7 @@ public class BookingService {
     private BookingDto mapToDto(Booking booking) {
         return BookingDto.builder()
                 .id(booking.getId())
+                .hotelId(booking.getHotelId())
                 .roomId(booking.getRoomId())
                 .userId(booking.getUserId())
                 .checkInDate(booking.getCheckInDate())

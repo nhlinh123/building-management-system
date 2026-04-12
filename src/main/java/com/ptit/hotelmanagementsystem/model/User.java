@@ -18,6 +18,7 @@ public class User {
 
     private String username;
 
+    @jakarta.persistence.Column(nullable = true)
     private String password;
 
     private String roles;

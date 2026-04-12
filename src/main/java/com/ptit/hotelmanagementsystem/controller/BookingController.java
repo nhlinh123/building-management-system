@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -24,8 +25,9 @@ public class BookingController {
     private BookingService bookingService;
 
     @PostMapping
-    public ResponseEntity<BaseResponseModel<BookingDto>> createBooking(@RequestBody CreateBookingRequest request) {
-        BookingDto createdBooking = bookingService.createBooking(request);
+    public ResponseEntity<BaseResponseModel<BookingDto>> createBooking(@RequestBody CreateBookingRequest request, Authentication authentication) {
+        String username = (authentication != null) ? authentication.getName() : null;
+        BookingDto createdBooking = bookingService.createBooking(request, username);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(BaseResponseModel.created(createdBooking, "Booking created successfully"));
     }
